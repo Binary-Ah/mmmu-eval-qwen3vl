@@ -1,0 +1,8 @@
+[2026-10-05 09:55:04] queue start: all
+[2026-10-05 09:55:04] === p3_sym_cot : symbolic-image questions, step-by-step prompt: does reasoning fix them?
+[2026-10-05 11:51:28] p3_sym_cot finished exit=0 in 116 min
+[2026-10-05 11:51:28] === p4_sym_textonly : same questions WITHOUT images: how much does the model use the picture?
+[2026-10-05 12:10:49] p4_sym_textonly finished exit=0 in 19 min
+[2026-10-05 12:10:49] === p5_sym_hires : same questions, min 1024 visual tokens per image: is low resolution the cause?
+[2026-10-05 12:58:18] p5_sym_hires finished exit=0 in 47 min
+[2026-10-05 12:58:18] === p6_sym_describe : same questions, 'describe the image first' prompt: read transcriptions to separate perception vs reasoning

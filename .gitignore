@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+.env
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.save
+
+# Hugging Face / model cache, weights, datasets
+.cache/
+huggingface/
+hf_cache/
+checkpoints/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+data/
+
+# Live run outputs (curated copies live under experiments/)
+runs/
+*.tmp
+pid
+
+# Archives
+*.tar.gz
+*.tgz
+*.zip
