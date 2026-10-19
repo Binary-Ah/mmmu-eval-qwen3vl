@@ -35,3 +35,6 @@ pid
 *.tar.gz
 *.tgz
 *.zip
+
+# Merged LoRA checkpoints
+ckpt/

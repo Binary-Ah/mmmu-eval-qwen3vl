@@ -60,7 +60,24 @@ Qwen3-VL-4B-Instruct를 MMMU validation 900문항에 **공식 generation recipe 
 | `p3_sym_cot` | 기호 이미지 4종(Sheet Music, Chemical Structures, Sketches and Drafts, Technical Blueprints), CoT 프롬프트 | 95 | 32.6% | 40.0% | +7.4 | 16 / 9 | 0.23 (유의하지 않음) |
 
 - open 문항은 "단어 하나로 답하라"는 공식 프롬프트 탓에 계산 과정을 생략하는 경향이 있었고, CoT 허용 시 +22.6%p로 유의하게 올랐다.
-- 기호 이미지 문항은 CoT만으로는 유의한 개선이 없어 perception 쪽 원인이 의심된다 (`experiments/proposal_queue.log`에 후속 실험 p4~p6 계획: 이미지 제거 / 고해상도 / describe-first).
+- 기호 이미지 문항은 CoT만으로는 유의한 개선이 없어 perception 쪽 원인을 의심하고 후속 실험 p4~p6을 돌렸다.
+
+### 후속 실험 (`experiments/proposal_table.md`, 상세 해석은 `docs/qwen3vl_experiments.md`)
+
+| run | 설정 | n | baseline | run | Δ (%p) | W→C / C→W | McNemar p |
+|---|---|---|---|---|---|---|---|
+| `p1_noise_seed1234` | seed만 변경 (노이즈 기준선) | 900 | 61.1 | 60.1 | −1.0 | 25 / 34 | 0.298 |
+| `abl_temp0` | temperature=0 | 900 | 61.1 | 58.6 | −2.6 | 21 / 44 | 0.0059 |
+| `p4_sym_textonly` | 기호 이미지 95문항, 이미지 제거 | 95 | 32.6 | 24.2 | −8.4 | 7 / 15 | 0.134 |
+| `p5_sym_hires` | 같은 95문항, 이미지당 ≥1024 visual tokens | 95 | 32.6 | 37.9 | +5.3 | 11 / 6 | 0.332 |
+| `p6_sym_describe` | 같은 95문항, "이미지 먼저 옮겨 적기" 프롬프트 | 95 | 32.6 | 45.3 | +12.6 | 22 / 10 | 0.050 |
+| `lora_smoke_eval` | LoRA 30 step 병합 체크포인트, 2과목 smoke | 60 | 68.3 | 46.7 | −21.7 | 4 / 17 | 0.0072 |
+
+- seed만 바꿔도 900문항 중 59문항(6.6%)의 정오가 뒤집힌다 → 그 이하의 차이는 노이즈로 판정.
+- temperature=0(greedy)은 반복·길이 초과가 늘어 오히려 −2.6%p (유의).
+- 기호 이미지는 이미지를 빼면 떨어지고(−8.4), 해상도만 올려서는 유의하지 않으며, describe-first 프롬프트가 가장 컸다(+12.6, p=0.050 경계).
+- LoRA smoke(30 step)는 파이프라인 검증용이며 성능은 크게 떨어졌다 — 본 학습 전 출력 형식 붕괴를 먼저 확인할 필요.
+- 대표 오답/개선 사례와 이미지 유형별 표는 `evidence/`에 정리했다.
 
 ## My role
 
@@ -69,6 +86,8 @@ Qwen3-VL-4B-Instruct를 MMMU validation 900문항에 **공식 generation recipe 
 - 실행 스크립트 신규: `check_gpu.sh`, `run_baseline_modelcard.sh`(nohup 백그라운드, 로그·GPU 시계열 포함), `status_run.sh`, `gpu_monitor.sh`.
 - 공식 recipe baseline 전체 run(900문항, 3.68 h) 설계·실행 및 runbook 문서화.
 - 격차 분석과 ablation 2건 + McNemar 비교표.
+- 후속: `--prompt_variant`/`--question_types`/`--img_types` 옵션과 프롬프트 변형(`prompt.py`), 실험 큐(`run_proposal_experiments.sh`), seed 노이즈·temperature·이미지 제거·고해상도·describe-first 실험 p1~p6.
+- `compare_runs.py`(같은 문항 비교표 + McNemar), `analyze_subject_errors.py`, `build_evidence_pack.py`(사례·메타데이터 묶음), `lora_smoke_train.py`·`merge_lora.py`(LoRA smoke 학습·병합).
 - `prompt.py`·`parser.py`·`evaluator.py`·`dataset.py`와 `analyze_*.py`는 팀 공통 코드(주로 박채은)이며, 파이프라인이 돌아가도록 함께 포함했습니다. `dataset.py`에는 MMMU `explanation` 필드를 오답 분석용으로 보존하는 3줄을 추가했습니다.
 - 팀원별 상세 역할: TODO: 확인 (류다연·정성원 담당 범위).
 
@@ -97,9 +116,8 @@ python code/run_mmmu.py --model_path Qwen/Qwen3-VL-4B-Instruct --data_root $HF_H
 
 산출물: `runs/<run_name>/{manifest.json, metrics.json, predictions.jsonl, per_subject/*.jsonl, summary.md, summary.json, gpu_monitor.csv, run.log}`.
 
-> 주의: ablation run의 `command.txt`에 있는 `--prompt_variant`, `--question_types`, `--img_types` 옵션은
-> 서버의 `jina` 브랜치 작업본(commit `53eafc2f`, dirty)에서 추가한 것으로, 이 저장소의 `run_mmmu.py`(tar.gz 업로드 시점)에는 아직 없습니다.
-> TODO: 확인 — 서버 `~/MMDL` 작업본에서 최신 `run_mmmu.py`·`prompt.py`를 가져와 교체할 것.
+ablation은 같은 `run_mmmu.py`에 `--prompt_variant`(cot_open / sym_cot / sym_describe 등), `--question_types`, `--img_types`로 대상 문항과 프롬프트를 고르고,
+`scripts/run_proposal_experiments.sh`가 p1~p6 큐를 순서대로 실행합니다. 비교표는 `python code/compare_runs.py`로 다시 만들 수 있습니다.
 
 ## Files
 
@@ -107,13 +125,20 @@ python code/run_mmmu.py --model_path Qwen/Qwen3-VL-4B-Instruct --data_root $HF_H
 code/
   run_mmmu.py                 # 평가 파이프라인 (과목별 체크포인트/재개, manifest, logprobs)
   summarize_run.py            # run 디렉터리 → summary.md / summary.json, 두 run 비교
+  compare_runs.py             # 여러 run을 같은 문항 기준으로 비교 (W→C / C→W, McNemar)
+  analyze_subject_errors.py   # 과목·이미지 유형별 오답 분석
+  build_evidence_pack.py      # 대표 사례·run 메타데이터를 evidence/로 묶기
+  lora_smoke_train.py, merge_lora.py   # LoRA smoke 학습 / 병합
   prompt.py, parser.py, evaluator.py, dataset.py   # 프롬프트·파서·채점·데이터 로딩 (팀 공통)
   analyze_*.py                # 오답/토큰 길이/반복 분석 (팀 공통)
 scripts/
   check_gpu.sh, run_baseline_modelcard.sh, status_run.sh, gpu_monitor.sh   # 실행·모니터링
+  run_proposal_experiments.sh, make_evidence_pack.sh                         # 후속 실험 큐, evidence 생성
   setup.sh, run.sh, run_max_length.sh, run_resolution.sh, run_optimized_eval.sh, run_temp.sh   # 팀 초기 실험 스크립트
 docs/
   baseline_modelcard_runbook.md   # 서버 실행 절차 (서버 주소는 placeholder로 치환)
+  qwen3vl_experiments.md          # 전체 실험 정리·해석
+  proposal_experiments.md         # 후속 실험 설계
   SUBMISSION_TEMPLATE.md          # 과제 제출 템플릿
 reports/
   mmmu_baseline_modelcard.md      # 공식 recipe run 리포트 (제출 템플릿 구조)
@@ -121,7 +146,10 @@ experiments/
   baseline_modelcard_v1/          # 900문항 baseline: manifest, metrics, summary, predictions.jsonl.gz, run.log.gz, gpu_monitor.csv.gz, pip_freeze.txt
   abl_cot_open/                   # open 53문항 CoT ablation
   p3_sym_cot/                     # 기호 이미지 95문항 CoT ablation
-  compare_two.md                  # ablation vs baseline McNemar 비교표
+  p1_noise_seed1234/, abl_temp0/, p4_sym_textonly/, p5_sym_hires/, p6_sym_describe/   # 후속 실험
+  lora_smoke/, lora_smoke_eval/   # LoRA smoke 로그·요약 (가중치 제외)
+  compare_two.md, proposal_table.md   # McNemar 비교표
+evidence/                         # 헤드라인 수치, 이미지 유형별 표, 대표 사례(MMMU 이미지 포함), run 메타데이터
   proposal_queue.log              # 후속 실험 큐 기록 (p3~p6)
 requirements.txt, requirements-lock.txt
 ```

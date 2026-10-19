@@ -425,7 +425,7 @@
     "hostname": "adsl-ubuntu",
     "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.39",
     "python": "3.12.3",
-    "python_executable": "data/venv-mmdl/bin/python3",
+    "python_executable": ".venv/bin/python3",
     "cwd": ".",
     "argv": [
       "code/run_mmmu.py",
